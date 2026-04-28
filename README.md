@@ -123,7 +123,7 @@ for-science-obviously/
 ### Avvio con IntelliJ
 1. Clona il repository
    ```bash
-   git clone https://github.com/tuousername/for-science-obviously.git
+   git clone https://github.com/Romolo71/for-science-obviously.git
    ```
 2. Apri la cartella con IntelliJ IDEA
 3. IntelliJ rileverà automaticamente il `pom.xml` e scaricherà le dipendenze
@@ -140,9 +140,9 @@ mvn clean javafx:run
 
 | Nome | Ruolo |
 |------|-------|
-| — | — |
-| — | — |
-| — | — |
+| Guerra Matteo | Programmatore e Lore Supervisor |
+| Scattolin Tommaso | Programmatore e Art Designer |
+| Tonini Riccardo | Programmatore principale |
 
 ---
 
@@ -155,3 +155,4 @@ mvn clean javafx:run
 ## 📄 Licenza
 
 Progetto sviluppato a scopo didattico. I personaggi e l'universo di Portal e Half-Life appartengono a **Valve Corporation**.
+Per maggiori informazioni guardare [License.md](./LICENSE.md)
