@@ -155,4 +155,4 @@ mvn clean javafx:run
 ## 📄 Licenza
 
 Progetto sviluppato a scopo didattico. I personaggi e l'universo di Portal e Half-Life appartengono a **Valve Corporation**.
-Per maggiori informazioni guardare [License.md](./LICENSE.md)
+Per maggiori informazioni guardare [License.md](./LICENSE)
