@@ -30,6 +30,21 @@ Ogni difensore offre un tipo di potenziamento diverso:
 | **Atlas** | Offensiva | Danno, cadenza di fuoco, raggio |
 | **Peabody** | Difensiva | Resistenza torrette, integrità settori |
 
+Unità alleate disponibili:
+| Nome | Tipologia | Descrizione |
+|-------------|-------|-----------------|
+| Torretta | Attacco | Una semplice torretta (niente di che) |
+| Torretta Ventilatore | Attacco | Ralletta e fa meno dani |
+| Cubo | Difesa | fà da muro |
+| Cubo da complagnia | Difesa | Durà di più del cubo normale |
+
+Nemici che si potranno incontrare:
+| Nome | Tipo | Danno |
+|-------------|----------|-----------------|
+| Headcrab | Leggero | Normale |
+| Zombie | Medio | Normale |
+| Poison Zombie | medio | Veleno |
+| Zombine | Pesante | Aumentato |
 ---
 
 ## 🛠️ Tecnologie
