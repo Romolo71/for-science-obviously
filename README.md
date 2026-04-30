@@ -140,7 +140,7 @@ mvn clean javafx:run
 
 | Nome | Ruolo |
 |------|-------|
-| Guerra Matteo | Programmatore e Lore Supervisor |
+| Guerra Matteo | Programmatore e Level Designer |
 | Scattolin Tommaso | Programmatore e Art Designer |
 | Tonini Riccardo | Programmatore principale |
 
