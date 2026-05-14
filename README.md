@@ -65,7 +65,7 @@ for-science-obviously/
 ├── src/
 │   └── main/
 │       ├── java/
-│       │   └── com/forscience/
+│       │   └── it.rtonini.forscience/
 │       │       │
 │       │       ├── Main.java                  # Entry point dell'applicazione
 │       │       │
