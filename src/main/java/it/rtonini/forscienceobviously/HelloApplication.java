@@ -5,21 +5,18 @@ import javafx.application.Application;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
 
-/**
- * Main class that launches the tower defense game.
- */
-public class Main extends Application {
+public class HelloApplication extends Application {
 
     @Override
-    public void start(Stage primaryStage) {
+    public void start(Stage stage) {
         GamePane gamePane = new GamePane();
         Scene scene = new Scene(gamePane, 800, 600);
-        primaryStage.setTitle("For Science. Obviously.");
-        primaryStage.setScene(scene);
-        primaryStage.show();
+        stage.setTitle("Tower Defense");
+        stage.setScene(scene);
+        stage.show();
     }
 
     public static void main(String[] args) {
-        launch(args);
+        launch();
     }
 }
