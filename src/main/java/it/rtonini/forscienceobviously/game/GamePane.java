@@ -149,12 +149,12 @@ public class GamePane extends Pane {
         hud.setPrefWidth(MAP_WIDTH - 16);
 
         // Soldi
-        moneyLabel = new Label("💰 " + money + " $");
+        moneyLabel = new Label(money + " $");
         moneyLabel.setTextFill(Color.GOLD);
         moneyLabel.setStyle("-fx-font-size:14px; -fx-font-weight:bold;");
 
         // Wave
-        waveLabel = new Label("🌊 Wave 1");
+        waveLabel = new Label("Wave 1");
         waveLabel.setTextFill(Color.LIGHTCYAN);
         waveLabel.setStyle("-fx-font-size:14px; -fx-font-weight:bold;");
 
@@ -164,7 +164,7 @@ public class GamePane extends Pane {
         statusLabel.setStyle("-fx-font-size:12px;");
 
         // Bottone piazza torretta
-        Button buyBtn = new Button("🔫 Torretta (" + TURRET_COST + "$)");
+        Button buyBtn = new Button("Torretta (" + TURRET_COST + "$)");
         buyBtn.setStyle(
                 "-fx-background-color: #e67e22; -fx-text-fill: white;" +
                         "-fx-font-weight: bold; -fx-background-radius: 6;" +
@@ -187,8 +187,8 @@ public class GamePane extends Pane {
     }
 
     private void updateHUD() {
-        moneyLabel.setText("💰 " + money + " $");
-        waveLabel.setText("🌊 Wave " + waveManager.getCurrentWave());
+        moneyLabel.setText(money + " $");
+        waveLabel.setText("Wave " + waveManager.getCurrentWave());
     }
 
     // ── Game loop ─────────────────────────────────────────────────────────────
