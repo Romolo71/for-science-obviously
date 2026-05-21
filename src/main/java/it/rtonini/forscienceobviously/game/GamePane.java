@@ -1,23 +1,17 @@
 package it.rtonini.forscienceobviously.game;
 
 import it.rtonini.forscienceobviously.model.Bullet;
+import it.rtonini.forscienceobviously.model.entity.Enemy;
 import it.rtonini.forscienceobviously.model.entity.Turret;
-import it.rtonini.forscienceobviously.model.Sprite;
 import javafx.animation.AnimationTimer;
 import javafx.scene.Group;
-import javafx.scene.Scene;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.MouseButton;
 import javafx.scene.layout.Pane;
-import javafx.scene.paint.Color;
-import javafx.scene.shape.Circle;
-import javafx.scene.shape.Line;
-import javafx.scene.shape.Rectangle;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
 
 /**
  * The main game pane that contains the game logic and rendering.
@@ -25,69 +19,63 @@ import java.util.Random;
 public class GamePane extends Pane {
 
     private static final int TILE_SIZE = 32;
-    private static final int MAP_WIDTH = 20; // in tiles
+    private static final int MAP_WIDTH = 20;  // in tiles
     private static final int MAP_HEIGHT = 15; // in tiles
 
     private final Image mapImage;
     private final ImageView mapView;
+
     private final Group turretGroup = new Group();
-    private final Group enemyGroup = new Group();
+    private final Group enemyGroup  = new Group();
     private final Group bulletGroup = new Group();
 
     private final List<Turret> turrets = new ArrayList<>();
-    private final List<Enemy> enemies = new ArrayList<>();
+    private final List<Enemy>  enemies = new ArrayList<>();
     private final List<Bullet> bullets = new ArrayList<>();
 
     private final Path path;
     private final WaveManager waveManager;
 
-    private long lastEnemySpawnTime;
-    private static final long ENEMY_SPAWN_INTERVAL = 1_000_000_000; // 1 second in nanoseconds
+    private long lastEnemySpawnTime = 0;
+    private static final long ENEMY_SPAWN_INTERVAL = 1_000_000_000L; // 1 second
 
     public GamePane() {
-        // Load map image (assuming lvl1.jpeg is in resources/maps)
         mapImage = new Image(getClass().getResource("/maps/lvl1.jpeg").toExternalForm());
-        mapView = new ImageView(mapImage);
-        mapView.setFitWidth(MAP_WIDTH * TILE_SIZE);
+        mapView  = new ImageView(mapImage);
+        mapView.setFitWidth(MAP_WIDTH  * TILE_SIZE);
         mapView.setFitHeight(MAP_HEIGHT * TILE_SIZE);
 
-        // Define a simple path (from left to right, then down, then right, etc.)
-        // This is just an example; you can define a more complex path.
+        // Define path waypoints
         path = new Path();
-        path.addWaypoint(0, MAP_HEIGHT / 2 * TILE_SIZE); // Start at left middle
-        path.addWaypoint(MAP_WIDTH / 4 * TILE_SIZE, MAP_HEIGHT / 2 * TILE_SIZE);
-        path.addWaypoint(MAP_WIDTH / 4 * TILE_SIZE, MAP_HEIGHT / 4 * TILE_SIZE);
-        path.addWaypoint(MAP_WIDTH * 3 / 4 * TILE_SIZE, MAP_HEIGHT / 4 * TILE_SIZE);
-        path.addWaypoint(MAP_WIDTH * 3 / 4 * TILE_SIZE, MAP_HEIGHT * 3 / 4 * TILE_SIZE);
-        path.addWaypoint(MAP_WIDTH * TILE_SIZE, MAP_HEIGHT * 3 / 4 * TILE_SIZE); // Exit at right
+        path.addWaypoint(0,                              (MAP_HEIGHT / 2.0) * TILE_SIZE);
+        path.addWaypoint((MAP_WIDTH / 4.0)  * TILE_SIZE, (MAP_HEIGHT / 2.0) * TILE_SIZE);
+        path.addWaypoint((MAP_WIDTH / 4.0)  * TILE_SIZE, (MAP_HEIGHT / 4.0) * TILE_SIZE);
+        path.addWaypoint((MAP_WIDTH * 3/4.0)* TILE_SIZE, (MAP_HEIGHT / 4.0) * TILE_SIZE);
+        path.addWaypoint((MAP_WIDTH * 3/4.0)* TILE_SIZE, (MAP_HEIGHT * 3/4.0) * TILE_SIZE);
+        path.addWaypoint(MAP_WIDTH          * TILE_SIZE, (MAP_HEIGHT * 3/4.0) * TILE_SIZE);
 
-        waveManager = new WaveManager(this);
+        waveManager = new WaveManager(path);
 
-        // Add the map and groups to the pane
         getChildren().addAll(mapView, turretGroup, enemyGroup, bulletGroup);
 
-        // Set up mouse handling for placing turrets
         setOnMouseClicked(event -> {
             if (event.getButton() == MouseButton.PRIMARY) {
                 double x = event.getX();
                 double y = event.getY();
-                // Snap to grid
-                int gridX = (int) (x / TILE_SIZE) * TILE_SIZE + TILE_SIZE / 2;
-                int gridY = (int) (y / TILE_SIZE) * TILE_SIZE + TILE_SIZE / 2;
-                // Check if the cell is walkable (not on the path for simplicity)
+                int gridX = (int)(x / TILE_SIZE) * TILE_SIZE + TILE_SIZE / 2;
+                int gridY = (int)(y / TILE_SIZE) * TILE_SIZE + TILE_SIZE / 2;
                 if (!path.isOnPath(gridX, gridY)) {
                     placeTurret(gridX, gridY);
                 }
             }
         });
 
-        // Start the game loop
         AnimationTimer timer = new AnimationTimer() {
             private long lastUpdate = 0;
 
             @Override
             public void handle(long now) {
-                if (now - lastUpdate >= 16_666_666) { // ~60 FPS
+                if (now - lastUpdate >= 16_666_666L) {
                     update(now);
                     lastUpdate = now;
                 }
@@ -96,8 +84,12 @@ public class GamePane extends Pane {
         timer.start();
     }
 
+    // -------------------------------------------------------------------------
+    // Game loop
+    // -------------------------------------------------------------------------
+
     private void update(long now) {
-        // Spawn enemies based on wave manager
+        // Spawn enemies
         waveManager.update(now);
         if (now - lastEnemySpawnTime > ENEMY_SPAWN_INTERVAL && waveManager.canSpawnEnemy()) {
             Enemy enemy = waveManager.spawnEnemy();
@@ -112,48 +104,51 @@ public class GamePane extends Pane {
         for (int i = enemies.size() - 1; i >= 0; i--) {
             Enemy enemy = enemies.get(i);
             enemy.update(now);
-            if (enemy.isReachedExit()) {
-                // Enemy reached the end, remove it and maybe reduce lives
+            if (enemy.isReachedExit() || enemy.isDead()) {
                 enemyGroup.getChildren().remove(enemy.getSpriteView());
                 enemies.remove(i);
-                // TODO: Handle lives
-            } else if (enemy.isDead()) {
-                enemyGroup.getChildren().remove(enemy.getSpriteView());
-                enemies.remove(i);
-                // TODO: Add bounty
             }
         }
 
-        // Update turrets (shooting)
+        // Update turrets — collect newly fired bullets
         for (Turret turret : turrets) {
             turret.update(now, enemies);
+            for (Bullet b : turret.consumePendingBullets()) {
+                addBullet(b);
+            }
         }
 
         // Update bullets
         for (int i = bullets.size() - 1; i >= 0; i--) {
             Bullet bullet = bullets.get(i);
             bullet.update(now);
-            // Check for collision with enemies
+
+            boolean hit = false;
             for (Enemy enemy : enemies) {
                 if (bullet.getBoundsInParent().intersects(enemy.getBoundsInParent())) {
                     enemy.takeDamage(bullet.getDamage());
-                    // Remove bullet
-                    bulletGroup.getChildren().remove(bullet.getSpriteView());
-                    bullets.remove(i);
+                    hit = true;
                     break;
                 }
             }
-            // Remove bullet if it goes out of bounds
-            if (bullet.getX() < 0 || bullet.getX() > getWidth() || bullet.getY() < 0 || bullet.getY() > getHeight()) {
+
+            boolean outOfBounds = bullet.getX() < 0 || bullet.getX() > getWidth()
+                    || bullet.getY() < 0 || bullet.getY() > getHeight();
+
+            if (hit || outOfBounds) {
                 bulletGroup.getChildren().remove(bullet.getSpriteView());
                 bullets.remove(i);
             }
         }
     }
 
+    // -------------------------------------------------------------------------
+    // Helpers
+    // -------------------------------------------------------------------------
+
     private void placeTurret(double x, double y) {
-        // Create a turret sprite (using a placeholder image for now)
-        Image turretImg = new Image(getClass().getResource("/images/sprites/defenders/turret1.png").toExternalForm());
+        Image turretImg = new Image(
+                getClass().getResource("/images/sprites/defenders/turret1.png").toExternalForm());
         Turret turret = new Turret(turretImg, "Turret");
         turret.setX(x - turretImg.getWidth() / 2);
         turret.setY(y - turretImg.getHeight() / 2);
@@ -166,57 +161,51 @@ public class GamePane extends Pane {
         bulletGroup.getChildren().add(bullet.getSpriteView());
     }
 
-    /**
-     * Simple path definition for enemies to follow.
-     */
-    private static class Path {
-        private final List<Waypoint> waypoints = new ArrayList<>();
+    // -------------------------------------------------------------------------
+    // Path — static, no reference to outer instance needed
+    // -------------------------------------------------------------------------
+
+    static class Path {
+
+        private final List<double[]> waypoints = new ArrayList<>();
 
         public void addWaypoint(double x, double y) {
-            waypoints.add(new Waypoint(x, y));
+            waypoints.add(new double[]{x, y});
         }
 
         public boolean isOnPath(double x, double y) {
-            // Simple check: if the point is near any waypoint, consider it on path (for simplicity)
-            for (Waypoint wp : waypoints) {
-                if (Math.abs(wp.x - x) < TILE_SIZE && Math.abs(wp.y - y) < TILE_SIZE) {
+            for (double[] wp : waypoints) {
+                if (Math.abs(wp[0] - x) < TILE_SIZE && Math.abs(wp[1] - y) < TILE_SIZE) {
                     return true;
                 }
             }
             return false;
         }
 
-        public List<Waypoint> getWaypoints() {
+        public List<double[]> getWaypoints() {
             return waypoints;
-        }
-
-        private static class Waypoint {
-            double x, y;
-
-            Waypoint(double x, double y) {
-                this.x = x;
-                this.y = y;
-            }
         }
     }
 
-    /**
-     * Manages waves of enemies.
-     */
+    // -------------------------------------------------------------------------
+    // WaveManager — static (receives Path as constructor arg, no outer ref)
+    // -------------------------------------------------------------------------
+
     private static class WaveManager {
-        private final GamePane gamePane;
+
+        private final Path path;
         private int currentWave = 0;
         private int enemiesSpawnedInWave = 0;
-        private long lastWaveTime;
+        private long lastWaveTime = 0;
         private static final long WAVE_INTERVAL = 10_000_000_000L; // 10 seconds
 
-        WaveManager(GamePane gamePane) {
-            this.gamePane = gamePane;
+        WaveManager(Path path) {
+            this.path = path;
             startNewWave();
         }
 
         public void update(long now) {
-            if (now - lastWaveTime > WAVE_INTERVAL) {
+            if (lastWaveTime != 0 && now - lastWaveTime > WAVE_INTERVAL) {
                 startNewWave();
             }
         }
@@ -233,108 +222,78 @@ public class GamePane extends Pane {
         }
 
         public Enemy spawnEnemy() {
-            if (!canSpawnEnemy()) {
-                return null;
-            }
-            Enemy enemy = new Enemy(gamePane.path);
+            if (!canSpawnEnemy()) return null;
+            Enemy enemy = new BasicEnemy(path);
             enemiesSpawnedInWave++;
             return enemy;
         }
 
         private int getEnemiesPerWave() {
-            return 3 + currentWave; // Increase enemies per wave
+            return 3 + currentWave;
         }
     }
 
-    /**
-     * Enemy class that moves along the path.
-     */
-    private class Enemy {
-        private final Path path;
-        private final Sprite sprite;
-        private final ImageView spriteView;
-        private int currentWaypointIndex = 0;
-        private double speed = 2.0; // pixels per frame
-        private double health = 100;
-        private final double maxHealth = 100;
-        private boolean dead = false;
-        private boolean reachedExit = false;
+    // -------------------------------------------------------------------------
+    // BasicEnemy — concrete implementation of the abstract Enemy from model
+    // -------------------------------------------------------------------------
 
-        Enemy(Path path) {
+    private static class BasicEnemy extends Enemy {
+
+        private final Path path;
+        private int currentWaypointIndex = 0;
+
+        BasicEnemy(Path path) {
+            super(null, "Enemy"); // img loaded inside
             this.path = path;
-            // Load enemy sprite (placeholder)
-            Image enemyImg = new Image(getClass().getResource("/images/sprites/attackers/enemy1.png").toExternalForm());
-            sprite = new Sprite(enemyImg, "Enemy");
-            spriteView = new ImageView(sprite.getImg());
+
+            try {
+                Image img = new Image(
+                        BasicEnemy.class.getResource("/images/sprites/attackers/enemy1.png")
+                                .toExternalForm());
+                setImg(img);
+                spriteView.setImage(img);
+            } catch (Exception ignored) {}
+
             spriteView.setFitWidth(32);
             spriteView.setFitHeight(32);
-            // Start at the first waypoint
+            health    = 100;
+            maxHealth = 100;
+            speed     = 2.0;
+
             if (!path.getWaypoints().isEmpty()) {
-                Waypoint wp = path.getWaypoints().get(0);
-                spriteView.setX(wp.x - 16);
-                spriteView.setY(wp.y - 16);
+                double[] wp = path.getWaypoints().get(0);
+                spriteView.setX(wp[0] - 16);
+                spriteView.setY(wp[1] - 16);
             }
         }
 
+        @Override
         public void update(long now) {
             if (dead || reachedExit) return;
 
-            // Move towards the next waypoint
-            if (currentWaypointIndex < path.getWaypoints().size()) {
-                Waypoint target = path.getWaypoints().get(currentWaypointIndex);
-                double dx = target.x - (spriteView.getX() + 16);
-                double dy = target.y - (spriteView.getY() + 16);
-                double distance = Math.sqrt(dx * dx + dy * dy);
+            List<double[]> waypoints = path.getWaypoints();
+            if (currentWaypointIndex >= waypoints.size()) {
+                reachedExit = true;
+                return;
+            }
 
-                if (distance < speed) {
-                    // Reached the waypoint
-                    currentWaypointIndex++;
-                    if (currentWaypointIndex >= path.getWaypoints().size()) {
-                        reachedExit = true;
-                        System.out.println("Enemy reached exit!");
-                    }
-                } else {
-                    // Move towards the waypoint
-                    spriteView.setX(spriteView.getX() + (dx / distance) * speed);
-                    spriteView.setY(spriteView.getY() + (dy / distance) * speed);
+            double[] target = waypoints.get(currentWaypointIndex);
+            double cx = spriteView.getX() + 16;
+            double cy = spriteView.getY() + 16;
+            double dx = target[0] - cx;
+            double dy = target[1] - cy;
+            double distance = Math.sqrt(dx * dx + dy * dy);
+
+            if (distance < speed) {
+                currentWaypointIndex++;
+                if (currentWaypointIndex >= waypoints.size()) {
+                    reachedExit = true;
+                    System.out.println("Enemy reached exit!");
                 }
+            } else {
+                spriteView.setX(spriteView.getX() + (dx / distance) * speed);
+                spriteView.setY(spriteView.getY() + (dy / distance) * speed);
             }
-        }
-
-        public void takeDamage(double damage) {
-            health -= damage;
-            if (health <= 0) {
-                dead = true;
-                System.out.println("Enemy died!");
-            }
-        }
-
-        public boolean isDead() {
-            return dead;
-        }
-
-        public boolean isReachedExit() {
-            return reachedExit;
-        }
-
-        public Sprite getSprite() {
-            return sprite;
-        }
-
-        public ImageView getSpriteView() {
-            return spriteView;
-        }
-
-        public double getX() {
-            return spriteView.getX();
-        }
-
-        public double getY() {
-            return spriteView.getY();
-        }
-
-        public javafx.geometry.Bounds getBoundsInParent() {
-            return spriteView.getBoundsInParent();
         }
     }
 }

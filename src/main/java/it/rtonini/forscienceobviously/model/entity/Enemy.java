@@ -2,10 +2,13 @@ package it.rtonini.forscienceobviously.model.entity;
 
 import it.rtonini.forscienceobviously.model.Sprite;
 import javafx.scene.image.Image;
-import javafx.scene.image.ImageView;
 
+/**
+ * Abstract base class for all enemies.
+ * Extends Sprite, which already provides spriteView, getX/Y, setX/Y, etc.
+ */
 public abstract class Enemy extends Sprite {
-    protected ImageView spriteView;
+
     protected double health;
     protected double maxHealth;
     protected double speed;
@@ -14,7 +17,6 @@ public abstract class Enemy extends Sprite {
 
     public Enemy(Image img, String nome) {
         super(img, nome);
-        this.spriteView = new ImageView(img);
         this.dead = false;
         this.reachedExit = false;
     }
@@ -34,29 +36,5 @@ public abstract class Enemy extends Sprite {
 
     public boolean isReachedExit() {
         return reachedExit;
-    }
-
-    public ImageView getSpriteView() {
-        return spriteView;
-    }
-
-    public double getX() {
-        return spriteView.getX();
-    }
-
-    public double getY() {
-        return spriteView.getY();
-    }
-
-    public void setX(double x) {
-        spriteView.setX(x);
-    }
-
-    public void setY(double y) {
-        spriteView.setY(y);
-    }
-
-    public javafx.geometry.Bounds getBoundsInParent() {
-        return spriteView.getBoundsInParent();
     }
 }
