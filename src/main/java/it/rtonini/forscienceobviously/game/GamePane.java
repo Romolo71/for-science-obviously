@@ -4,79 +4,131 @@ import it.rtonini.forscienceobviously.model.Bullet;
 import it.rtonini.forscienceobviously.model.entity.Enemy;
 import it.rtonini.forscienceobviously.model.entity.Turret;
 import javafx.animation.AnimationTimer;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Group;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.MouseButton;
-import javafx.scene.layout.Pane;
+import javafx.scene.layout.*;
+import javafx.scene.paint.Color;
+import javafx.scene.shape.Rectangle;
 
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
-/**
- * The main game pane that contains the game logic and rendering.
- */
 public class GamePane extends Pane {
 
-    private static final int TILE_SIZE = 32;
-    private static final int MAP_WIDTH = 20;  // in tiles
-    private static final int MAP_HEIGHT = 15; // in tiles
+    // ── Layout ────────────────────────────────────────────────────────────────
+    private static final double MAP_WIDTH       = 640;
+    private static final double MAP_HEIGHT      = 480;
+    private static final double PLAY_AREA_TOP   = 100.0;  // sotto la striscia personaggi
+    private static final double DEFENSE_LINE_X  = 580.0;  // linea verticale arancione
 
-    private final Image mapImage;
-    private final ImageView mapView;
+    // ── Economia ──────────────────────────────────────────────────────────────
+    private static final int TURRET_COST        = 50;
+    private static final int KILL_REWARD        = 20;
+    private static final int STARTING_MONEY     = 150;
+    private int money = STARTING_MONEY;
 
+    // ── Stato UI ──────────────────────────────────────────────────────────────
+    private boolean placingTurret = false;
+    private Label   moneyLabel;
+    private Label   waveLabel;
+    private Label   statusLabel;
+
+    // ── Immagini ──────────────────────────────────────────────────────────────
+    private Image TURRET_IMG;
+    private Image HEADCRAB_IMG;
+
+    private Image loadImg(String path) {
+        try (InputStream is = getClass().getResourceAsStream(path)) {
+            if (is != null) return new Image(is);
+        } catch (Exception ignored) {}
+        System.err.println("WARNING: immagine non trovata: " + path);
+        return null;
+    }
+
+    // ── Scene graph ───────────────────────────────────────────────────────────
     private final Group turretGroup = new Group();
     private final Group enemyGroup  = new Group();
     private final Group bulletGroup = new Group();
 
+    // ── Game state ────────────────────────────────────────────────────────────
     private final List<Turret> turrets = new ArrayList<>();
     private final List<Enemy>  enemies = new ArrayList<>();
     private final List<Bullet> bullets = new ArrayList<>();
 
-    private final Path path;
     private final WaveManager waveManager;
+    private final Random      random = new Random();
 
     private long lastEnemySpawnTime = 0;
-    private static final long ENEMY_SPAWN_INTERVAL = 1_000_000_000L; // 1 second
+    private static final long ENEMY_SPAWN_INTERVAL = 1_800_000_000L;
 
+    // ── Constructor ───────────────────────────────────────────────────────────
     public GamePane() {
-        mapImage = new Image(getClass().getResource("/maps/lvl1.jpeg").toExternalForm());
-        mapView  = new ImageView(mapImage);
-        mapView.setFitWidth(MAP_WIDTH  * TILE_SIZE);
-        mapView.setFitHeight(MAP_HEIGHT * TILE_SIZE);
+        setPrefSize(MAP_WIDTH, MAP_HEIGHT);
 
-        // Define path waypoints
-        path = new Path();
-        path.addWaypoint(0,                              (MAP_HEIGHT / 2.0) * TILE_SIZE);
-        path.addWaypoint((MAP_WIDTH / 4.0)  * TILE_SIZE, (MAP_HEIGHT / 2.0) * TILE_SIZE);
-        path.addWaypoint((MAP_WIDTH / 4.0)  * TILE_SIZE, (MAP_HEIGHT / 4.0) * TILE_SIZE);
-        path.addWaypoint((MAP_WIDTH * 3/4.0)* TILE_SIZE, (MAP_HEIGHT / 4.0) * TILE_SIZE);
-        path.addWaypoint((MAP_WIDTH * 3/4.0)* TILE_SIZE, (MAP_HEIGHT * 3/4.0) * TILE_SIZE);
-        path.addWaypoint(MAP_WIDTH          * TILE_SIZE, (MAP_HEIGHT * 3/4.0) * TILE_SIZE);
+        TURRET_IMG   = loadImg("/images/sprites/defenders/Turret.jpeg");
+        HEADCRAB_IMG = loadImg("/images/sprites/attackers/headcrab.jpeg");
 
-        waveManager = new WaveManager(path);
+        // Mappa
+        Image mapImg = loadImg("/maps/lvl1.jpeg");
+        if (mapImg != null) {
+            ImageView mapView = new ImageView(mapImg);
+            mapView.setFitWidth(MAP_WIDTH);
+            mapView.setFitHeight(MAP_HEIGHT);
+            getChildren().add(mapView);
+        }
 
-        getChildren().addAll(mapView, turretGroup, enemyGroup, bulletGroup);
+        // Linea arancione verticale (linea di difesa)
+        Rectangle defenseLine = new Rectangle(DEFENSE_LINE_X, PLAY_AREA_TOP,
+                3, MAP_HEIGHT - PLAY_AREA_TOP);
+        defenseLine.setFill(Color.ORANGE);
+        defenseLine.setMouseTransparent(true);
 
+        getChildren().addAll(turretGroup, enemyGroup, bulletGroup, defenseLine);
+
+        // HUD in alto a destra
+        buildHUD();
+
+        waveManager = new WaveManager(HEADCRAB_IMG);
+
+        // Click per piazzare torretta
         setOnMouseClicked(event -> {
+            if (!placingTurret) return;
             if (event.getButton() == MouseButton.PRIMARY) {
                 double x = event.getX();
                 double y = event.getY();
-                int gridX = (int)(x / TILE_SIZE) * TILE_SIZE + TILE_SIZE / 2;
-                int gridY = (int)(y / TILE_SIZE) * TILE_SIZE + TILE_SIZE / 2;
-                if (!path.isOnPath(gridX, gridY)) {
-                    placeTurret(gridX, gridY);
+                if (y > PLAY_AREA_TOP && x < DEFENSE_LINE_X - 16) {
+                    if (money >= TURRET_COST) {
+                        placeTurret(x, y);
+                        money -= TURRET_COST;
+                        updateHUD();
+                    } else {
+                        statusLabel.setText("Soldi insufficienti!");
+                    }
                 }
+                placingTurret = false;
+                statusLabel.setText("");
+                setCursor(javafx.scene.Cursor.DEFAULT);
+            } else if (event.getButton() == MouseButton.SECONDARY) {
+                placingTurret = false;
+                statusLabel.setText("");
+                setCursor(javafx.scene.Cursor.DEFAULT);
             }
         });
 
+        // Game loop
         AnimationTimer timer = new AnimationTimer() {
             private long lastUpdate = 0;
-
-            @Override
-            public void handle(long now) {
+            @Override public void handle(long now) {
                 if (now - lastUpdate >= 16_666_666L) {
-                    update(now);
+                    gameUpdate(now);
                     lastUpdate = now;
                 }
             }
@@ -84,128 +136,180 @@ public class GamePane extends Pane {
         timer.start();
     }
 
-    // -------------------------------------------------------------------------
-    // Game loop
-    // -------------------------------------------------------------------------
+    // ── HUD ───────────────────────────────────────────────────────────────────
+    private void buildHUD() {
+        // Pannello in basso
+        HBox hud = new HBox(12);
+        hud.setAlignment(Pos.CENTER_LEFT);
+        hud.setPadding(new Insets(6, 12, 6, 12));
+        hud.setBackground(new Background(new BackgroundFill(
+                Color.color(0, 0, 0, 0.65), new CornerRadii(8), Insets.EMPTY)));
+        hud.setLayoutX(8);
+        hud.setLayoutY(MAP_HEIGHT - 48);
+        hud.setPrefWidth(MAP_WIDTH - 16);
 
-    private void update(long now) {
-        // Spawn enemies
+        // Soldi
+        moneyLabel = new Label("💰 " + money + " $");
+        moneyLabel.setTextFill(Color.GOLD);
+        moneyLabel.setStyle("-fx-font-size:14px; -fx-font-weight:bold;");
+
+        // Wave
+        waveLabel = new Label("🌊 Wave 1");
+        waveLabel.setTextFill(Color.LIGHTCYAN);
+        waveLabel.setStyle("-fx-font-size:14px; -fx-font-weight:bold;");
+
+        // Status
+        statusLabel = new Label("");
+        statusLabel.setTextFill(Color.TOMATO);
+        statusLabel.setStyle("-fx-font-size:12px;");
+
+        // Bottone piazza torretta
+        Button buyBtn = new Button("🔫 Torretta (" + TURRET_COST + "$)");
+        buyBtn.setStyle(
+                "-fx-background-color: #e67e22; -fx-text-fill: white;" +
+                        "-fx-font-weight: bold; -fx-background-radius: 6;" +
+                        "-fx-padding: 4 12 4 12; -fx-cursor: hand;");
+        buyBtn.setOnAction(e -> {
+            if (money >= TURRET_COST) {
+                placingTurret = true;
+                statusLabel.setText("Clicca dove vuoi piazzare la torretta (tasto dx per annullare)");
+                setCursor(javafx.scene.Cursor.CROSSHAIR);
+            } else {
+                statusLabel.setText("Soldi insufficienti!");
+            }
+        });
+
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+
+        hud.getChildren().addAll(moneyLabel, waveLabel, spacer, statusLabel, buyBtn);
+        getChildren().add(hud);
+    }
+
+    private void updateHUD() {
+        moneyLabel.setText("💰 " + money + " $");
+        waveLabel.setText("🌊 Wave " + waveManager.getCurrentWave());
+    }
+
+    // ── Game loop ─────────────────────────────────────────────────────────────
+    private void gameUpdate(long now) {
         waveManager.update(now);
-        if (now - lastEnemySpawnTime > ENEMY_SPAWN_INTERVAL && waveManager.canSpawnEnemy()) {
-            Enemy enemy = waveManager.spawnEnemy();
-            if (enemy != null) {
-                enemies.add(enemy);
-                enemyGroup.getChildren().add(enemy.getSpriteView());
+        updateHUD();
+
+        // Spawn nemici
+        if (waveManager.canSpawnEnemy() && now - lastEnemySpawnTime > ENEMY_SPAWN_INTERVAL) {
+            double spawnY = PLAY_AREA_TOP + 8 + random.nextDouble() * (MAP_HEIGHT - PLAY_AREA_TOP - 56);
+            Enemy e = waveManager.spawnEnemy(spawnY);
+            if (e != null) {
+                enemies.add(e);
+                enemyGroup.getChildren().add(e.getSpriteView());
                 lastEnemySpawnTime = now;
             }
         }
 
-        // Update enemies
+        // Aggiorna nemici
         for (int i = enemies.size() - 1; i >= 0; i--) {
-            Enemy enemy = enemies.get(i);
-            enemy.update(now);
-            if (enemy.isReachedExit() || enemy.isDead()) {
-                enemyGroup.getChildren().remove(enemy.getSpriteView());
+            Enemy e = enemies.get(i);
+
+            if (e.isDead()) {
+                enemyGroup.getChildren().remove(e.getSpriteView());
                 enemies.remove(i);
+                money += KILL_REWARD;
+                updateHUD();
+                continue;
+            }
+
+            // Controlla collisione con torrette (il nemico si ferma e attacca)
+            Turret blocked = getTurretBlockingEnemy(e);
+            if (blocked != null) {
+                // Il nemico attacca la torretta
+                ((Headcrab) e).attackTurret(blocked);
+                if (blocked.isDead()) {
+                    turretGroup.getChildren().remove(blocked.getSpriteView());
+                    turrets.remove(blocked);
+                    System.out.println("Torretta distrutta!");
+                }
+            } else if (e.getX() + 32 >= DEFENSE_LINE_X) {
+                // Ha superato la linea senza bloccarsi (non dovrebbe succedere)
+                enemyGroup.getChildren().remove(e.getSpriteView());
+                enemies.remove(i);
+            } else {
+                e.update(now);
             }
         }
 
-        // Update turrets — collect newly fired bullets
-        for (Turret turret : turrets) {
-            turret.update(now, enemies);
-            for (Bullet b : turret.consumePendingBullets()) {
+        // Torrette sparano
+        for (Turret t : turrets) {
+            t.update(now, enemies);
+            for (Bullet b : t.consumePendingBullets()) {
                 addBullet(b);
             }
         }
 
-        // Update bullets
+        // Proiettili
         for (int i = bullets.size() - 1; i >= 0; i--) {
-            Bullet bullet = bullets.get(i);
-            bullet.update(now);
-
+            Bullet b = bullets.get(i);
+            b.update(now);
             boolean hit = false;
-            for (Enemy enemy : enemies) {
-                if (bullet.getBoundsInParent().intersects(enemy.getBoundsInParent())) {
-                    enemy.takeDamage(bullet.getDamage());
+            for (Enemy e : enemies) {
+                if (b.getBoundsInParent().intersects(e.getBoundsInParent())) {
+                    e.takeDamage(b.getDamage());
                     hit = true;
                     break;
                 }
             }
-
-            boolean outOfBounds = bullet.getX() < 0 || bullet.getX() > getWidth()
-                    || bullet.getY() < 0 || bullet.getY() > getHeight();
-
-            if (hit || outOfBounds) {
-                bulletGroup.getChildren().remove(bullet.getSpriteView());
+            boolean oob = b.getX() < 0 || b.getX() > MAP_WIDTH
+                    || b.getY() < PLAY_AREA_TOP || b.getY() > MAP_HEIGHT;
+            if (hit || oob) {
+                bulletGroup.getChildren().remove(b.getNode());
                 bullets.remove(i);
             }
         }
     }
 
-    // -------------------------------------------------------------------------
-    // Helpers
-    // -------------------------------------------------------------------------
+    // Restituisce la prima torretta che il nemico ha davanti (collisione)
+    private Turret getTurretBlockingEnemy(Enemy e) {
+        for (Turret t : turrets) {
+            if (e.getBoundsInParent().intersects(t.getBoundsInParent())) {
+                return t;
+            }
+        }
+        return null;
+    }
 
+    // ── Piazza torretta ───────────────────────────────────────────────────────
     private void placeTurret(double x, double y) {
-        Image turretImg = new Image(
-                getClass().getResource("/images/sprites/defenders/turret1.png").toExternalForm());
-        Turret turret = new Turret(turretImg, "Turret");
-        turret.setX(x - turretImg.getWidth() / 2);
-        turret.setY(y - turretImg.getHeight() / 2);
+        Turret turret = new Turret(TURRET_IMG, "Turret");
+        turret.setX(x - 16);
+        turret.setY(y - 16);
         turrets.add(turret);
         turretGroup.getChildren().add(turret.getSpriteView());
     }
 
     public void addBullet(Bullet bullet) {
         bullets.add(bullet);
-        bulletGroup.getChildren().add(bullet.getSpriteView());
+        bulletGroup.getChildren().add(bullet.getNode());
     }
 
-    // -------------------------------------------------------------------------
-    // Path — static, no reference to outer instance needed
-    // -------------------------------------------------------------------------
-
-    static class Path {
-
-        private final List<double[]> waypoints = new ArrayList<>();
-
-        public void addWaypoint(double x, double y) {
-            waypoints.add(new double[]{x, y});
-        }
-
-        public boolean isOnPath(double x, double y) {
-            for (double[] wp : waypoints) {
-                if (Math.abs(wp[0] - x) < TILE_SIZE && Math.abs(wp[1] - y) < TILE_SIZE) {
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        public List<double[]> getWaypoints() {
-            return waypoints;
-        }
-    }
-
-    // -------------------------------------------------------------------------
-    // WaveManager — static (receives Path as constructor arg, no outer ref)
-    // -------------------------------------------------------------------------
-
+    // =========================================================================
+    // WaveManager
+    // =========================================================================
     private static class WaveManager {
+        private final Image headcrabImg;
+        private int  currentWave          = 0;
+        private int  enemiesSpawnedInWave  = 0;
+        private long lastWaveTime          = 0;
+        private static final long WAVE_INTERVAL = 20_000_000_000L;
 
-        private final Path path;
-        private int currentWave = 0;
-        private int enemiesSpawnedInWave = 0;
-        private long lastWaveTime = 0;
-        private static final long WAVE_INTERVAL = 10_000_000_000L; // 10 seconds
-
-        WaveManager(Path path) {
-            this.path = path;
+        WaveManager(Image img) {
+            this.headcrabImg = img;
             startNewWave();
         }
 
-        public void update(long now) {
-            if (lastWaveTime != 0 && now - lastWaveTime > WAVE_INTERVAL) {
+        void update(long now) {
+            if (lastWaveTime != 0
+                    && now - lastWaveTime > WAVE_INTERVAL
+                    && enemiesSpawnedInWave >= getEnemiesPerWave()) {
                 startNewWave();
             }
         }
@@ -214,86 +318,54 @@ public class GamePane extends Pane {
             currentWave++;
             enemiesSpawnedInWave = 0;
             lastWaveTime = System.nanoTime();
-            System.out.println("Starting wave " + currentWave);
+            System.out.println("=== Wave " + currentWave + " (" + getEnemiesPerWave() + " nemici) ===");
         }
 
-        public boolean canSpawnEnemy() {
-            return enemiesSpawnedInWave < getEnemiesPerWave();
-        }
+        boolean canSpawnEnemy() { return enemiesSpawnedInWave < getEnemiesPerWave(); }
 
-        public Enemy spawnEnemy() {
+        Enemy spawnEnemy(double spawnY) {
             if (!canSpawnEnemy()) return null;
-            Enemy enemy = new BasicEnemy(path);
             enemiesSpawnedInWave++;
-            return enemy;
+            return new Headcrab(headcrabImg, spawnY);
         }
 
-        private int getEnemiesPerWave() {
-            return 3 + currentWave;
-        }
+        int getCurrentWave() { return currentWave; }
+        private int getEnemiesPerWave() { return 3 + currentWave; }
     }
 
-    // -------------------------------------------------------------------------
-    // BasicEnemy — concrete implementation of the abstract Enemy from model
-    // -------------------------------------------------------------------------
+    // =========================================================================
+    // Headcrab
+    // =========================================================================
+    private static class Headcrab extends Enemy {
 
-    private static class BasicEnemy extends Enemy {
+        private static final double MOVE_SPEED    = 1.5;
+        private static final double ATTACK_DAMAGE = 0.3; // danno per frame alla torretta
+        private boolean attacking = false;
 
-        private final Path path;
-        private int currentWaypointIndex = 0;
-
-        BasicEnemy(Path path) {
-            super(null, "Enemy"); // img loaded inside
-            this.path = path;
-
-            try {
-                Image img = new Image(
-                        BasicEnemy.class.getResource("/images/sprites/attackers/enemy1.png")
-                                .toExternalForm());
-                setImg(img);
-                spriteView.setImage(img);
-            } catch (Exception ignored) {}
+        Headcrab(Image img, double spawnY) {
+            super(img, "Headcrab");
+            health    = 80;
+            maxHealth = 80;
+            speed     = MOVE_SPEED;
 
             spriteView.setFitWidth(32);
             spriteView.setFitHeight(32);
-            health    = 100;
-            maxHealth = 100;
-            speed     = 2.0;
-
-            if (!path.getWaypoints().isEmpty()) {
-                double[] wp = path.getWaypoints().get(0);
-                spriteView.setX(wp[0] - 16);
-                spriteView.setY(wp[1] - 16);
-            }
+            spriteView.setX(-32);
+            spriteView.setY(spawnY);
         }
 
         @Override
         public void update(long now) {
-            if (dead || reachedExit) return;
+            if (dead) return;
+            attacking = false;
+            // Va dritto a destra
+            spriteView.setX(spriteView.getX() + speed);
+        }
 
-            List<double[]> waypoints = path.getWaypoints();
-            if (currentWaypointIndex >= waypoints.size()) {
-                reachedExit = true;
-                return;
-            }
-
-            double[] target = waypoints.get(currentWaypointIndex);
-            double cx = spriteView.getX() + 16;
-            double cy = spriteView.getY() + 16;
-            double dx = target[0] - cx;
-            double dy = target[1] - cy;
-            double distance = Math.sqrt(dx * dx + dy * dy);
-
-            if (distance < speed) {
-                currentWaypointIndex++;
-                if (currentWaypointIndex >= waypoints.size()) {
-                    reachedExit = true;
-                    System.out.println("Enemy reached exit!");
-                }
-            } else {
-                spriteView.setX(spriteView.getX() + (dx / distance) * speed);
-                spriteView.setY(spriteView.getY() + (dy / distance) * speed);
-            }
+        /** Chiamato dal game loop quando collide con una torretta */
+        public void attackTurret(Turret t) {
+            attacking = true;
+            t.takeDamage(ATTACK_DAMAGE);
         }
     }
 }
