@@ -74,7 +74,7 @@ public class GamePane extends Pane {
         setPrefSize(MAP_WIDTH, MAP_HEIGHT);
 
         TURRET_IMG   = loadImg("/images/sprites/defenders/Turret.jpeg");
-        HEADCRAB_IMG = loadImg("/images/sprites/attackers/headcrab.jpeg");
+        HEADCRAB_IMG = loadImg("/images/sprites/attackers/headcrab.png");
 
         // Mappa
         Image mapImg = loadImg("/maps/lvl1.jpeg");
